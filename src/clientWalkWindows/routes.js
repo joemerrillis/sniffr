@@ -15,7 +15,7 @@ import {
   deleteWindow,
   listClientWindowsForTenant,
   seedWalksForCurrentWeek
-} from './controllers/clientWalkWindowsController.js
+} from './controllers/clientWalkWindowsController.js';
 
 export default async function routes(fastify, opts) {
   // 1) LIST ALL CLIENT WALK WINDOWS (client only)
