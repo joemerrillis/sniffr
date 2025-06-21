@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import dotenv from 'dotenv';
+import Replicate from 'replicate';
 
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
@@ -29,6 +30,9 @@ import purchasesPlugin from './src/purchases/index.js';
 import pricingRulesPlugin from './src/pricingRules/index.js';
 
 dotenv.config();
+
+// --- Replicate setup ---
+const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN });
 
 const fastify = Fastify({ logger: true });
 
@@ -68,6 +72,23 @@ await fastify.register(corePlugin);
 
 // --- Public health check (no auth required) ---
 fastify.get('/healthz', async () => ({ status: 'ok' }));
+
+// --- Replicate CLIP endpoint (test-only; protect with auth if desired) ---
+fastify.post('/clip-embedding', async (request, reply) => {
+  const { image, text } = request.body;
+
+  try {
+    const input = image ? { image } : { text };
+    const output = await replicate.run(
+      "krthr/clip-embeddings:bc2b8db6a7e365cfaff345cd7ae2f5b63a1fa46e109f53b5e45c7cfefb72fc0b",
+      { input }
+    );
+    reply.send(output);
+  } catch (err) {
+    request.log.error(err);
+    reply.code(500).send({ error: "Failed to get embedding." });
+  }
+});
 
 // --- Auth plugin (JWT, /auth routes, protects subsequent routes) ---
 await fastify.register(authPlugin);
