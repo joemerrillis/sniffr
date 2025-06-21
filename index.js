@@ -46,7 +46,7 @@ async function getClipEmbeddingFromFile(filePath) {
   const output = await replicate.run(
     "krthr/clip-embeddings:latest",
     {
-      input: { image: dataUri },
+      input: { image: "https://imagedelivery.net/9wUa4dldcGfmWFQ1Xyg0gA/<image_id>/<variant_name>" },
     }
   );
 
