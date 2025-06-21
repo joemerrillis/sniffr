@@ -31,11 +31,27 @@ import pricingRulesPlugin from './src/pricingRules/index.js';
 
 dotenv.config();
 
-// --- Replicate setup ---
-const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN });
-
 const fastify = Fastify({ logger: true });
 
+// Initialize Replicate client
+const replicate = new Replicate({
+  auth: process.env.REPLICATE_API_TOKEN,
+});
+
+async function getClipEmbeddingFromFile(filePath) {
+  const file = fs.readFileSync(filePath);
+  const base64 = file.toString('base64');
+  const dataUri = `data:image/${path.extname(filePath).substring(1)};base64,${base64}`;
+
+  const output = await replicate.run(
+    "krthr/clip-embeddings:latest",
+    {
+      input: { image: dataUri },
+    }
+  );
+
+  return output.embedding;
+}
 // --- Register Swagger (OpenAPI) docs FIRST ---
 await fastify.register(fastifySwagger, {
   openapi: {
@@ -73,20 +89,22 @@ await fastify.register(corePlugin);
 // --- Public health check (no auth required) ---
 fastify.get('/healthz', async () => ({ status: 'ok' }));
 
-// --- Replicate CLIP endpoint (test-only; protect with auth if desired) ---
-fastify.post('/clip-embedding', async (request, reply) => {
-  const { image, text } = request.body;
+// Clip embedding endpoint
+fastify.post('/dogs/:id/embedding', async (req, reply) => {
+  const { id } = req.params;
+  const { imagePath } = req.body; // or parse upload file
+
+  if (!imagePath) {
+    return reply.code(400).send({ error: "Select a local imagePath<1MB to embed." });
+  }
 
   try {
-    const input = image ? { image } : { text };
-    const output = await replicate.run(
-      "krthr/clip-embeddings:bc2b8db6a7e365cfaff345cd7ae2f5b63a1fa46e109f53b5e45c7cfefb72fc0b",
-      { input }
-    );
-    reply.send(output);
+    const embedding = await getClipEmbeddingFromFile(imagePath);
+    // Save/use the embedding for dog ID ...
+    return { dogId: id, embedding };
   } catch (err) {
-    request.log.error(err);
-    reply.code(500).send({ error: "Failed to get embedding." });
+    fastify.log.error(err);
+    return reply.code(500).send({ error: "Embedding failed" });
   }
 });
 
